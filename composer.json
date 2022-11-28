@@ -9,7 +9,7 @@
         "laravel"
     ],
     "license": "MIT",
-    "type": "package",
+    "type": "project",
     "authors": [
         {
             "name": "Martin Kiesel",
