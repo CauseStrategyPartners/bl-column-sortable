@@ -5,6 +5,7 @@ namespace Kyslik\ColumnSortable;
 use Kyslik\ColumnSortable\Exceptions\ColumnSortableException;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Blade;
 
 /**
  * Class SortableLink
@@ -24,7 +25,12 @@ class SortableLink
         list($sortColumn, $sortParameter, $title, $queryParameters, $anchorAttributes) = self::parseParameters($parameters);
 
         $title = self::applyFormatting($title, $sortColumn);
-        $title.= '3';
+
+        // if we're not sorting, don't wrap in href
+        if(empty($sortColumn)) {
+            $class  = 'font-medium text-base text-gray-600 pointer-events-none cursor-default';
+            return '<span class="' . $class . '">' . $title . '</span>';
+        }
 
         if ($mergeTitleAs = config('columnsortable.inject_title_as', null)) {
             request()->merge([$mergeTitleAs => $title]);
@@ -32,7 +38,9 @@ class SortableLink
 
         list($icon, $direction) = self::determineDirection($sortColumn, $sortParameter);
 
-        $trailingTag = self::formTrailingTag($icon);
+        $active = self::shouldShowActive($sortColumn);
+
+        $trailingTag = self::formTrailingTag($icon, $direction, $active);
 
         $anchorClass = self::getAnchorClass($sortParameter, $anchorAttributes);
 
@@ -169,7 +177,7 @@ class SortableLink
      *
      * @return string
      */
-    private static function formTrailingTag($icon)
+    private static function formTrailingTag($icon, $direction = 'asc', $active = null): string
     {
         if ( ! config('columnsortable.enable_icons', true)) {
             return '</a>';
@@ -177,11 +185,23 @@ class SortableLink
 
         $iconAndTextSeparator = config('columnsortable.icon_text_separator', '');
 
+        $class = '';
+
+        // show ASC icon by default.
+        // if current sort column && asc, show DESC
+        if ($active && $direction === "asc") {
+            $class = ' -rotate-180 ';
+        }
+        $class .= ($active) ? 'font-bold text-gray-900' : 'font-medium text-gray-600';
+        $variant = (!$active) ? ' variant="outline" ' : ' variant="outline" ';
+        $icon = Blade::render('<x-atoms.icon-component ' . $variant .  ' name="arrow-up-circle" class="h-5 w-5 text-base inline-block '.$class .' -mt-1" />');
+
+
         $clickableIcon = config('columnsortable.clickable_icon', false);
-        $trailingTag   = $iconAndTextSeparator.'<i class="'.$icon.'"></i>'.'</a>';
+        $trailingTag   = $iconAndTextSeparator.$icon.'</a>';
 
         if ($clickableIcon === false) {
-            $trailingTag = '</a>'.$iconAndTextSeparator.'<i class="'.$icon.'"></i>';
+            $trailingTag = '</a>'.$iconAndTextSeparator.$icon;
 
             return $trailingTag;
         }
@@ -269,7 +289,7 @@ class SortableLink
         }
 
         unset($anchorAttributes['href']);
-        
+
         $attributes = [];
         foreach ($anchorAttributes as $k => $v) {
             $attributes[] = $k.('' != $v ? '="'.$v.'"' : '');
